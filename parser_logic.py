@@ -3,6 +3,7 @@ import io
 import openpyxl
 import pandas as pd
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
+from openpyxl.styles import Font
 
 def extract_name_and_prediction(text, team1="Brazil", team2="Morocco"):
     """Extract name and prediction from comment blocks"""
@@ -102,6 +103,18 @@ def process_excel_file(uploaded_file, team1="Brazil", team2="Morocco"):
     out_sheet = out_wb.active
     out_sheet.append(["Commenter Name", "Comment", "Time Ago", f"{team1} Goals", f"{team2} Goals", "Verdict"])
     
+    # Make header bold
+    for cell in out_sheet[1]:
+        cell.font = Font(bold=True)
+        
+    # Adjust column widths
+    out_sheet.column_dimensions['A'].width = 25  # Commenter Name
+    out_sheet.column_dimensions['B'].width = 60  # Comment
+    out_sheet.column_dimensions['C'].width = 12  # Time Ago
+    out_sheet.column_dimensions['D'].width = 15  # Team 1 Goals
+    out_sheet.column_dimensions['E'].width = 15  # Team 2 Goals
+    out_sheet.column_dimensions['F'].width = 25  # Verdict
+
     current_name = None
     current_link = None
     current_comment_lines = []

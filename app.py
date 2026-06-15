@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import io
 from collections import Counter
+from openpyxl.styles import Font
 
 from animation import render_header_animation
 from parser_logic import extract_name_and_prediction, parse_score, get_verdict, process_excel_file, pick_winners
@@ -210,6 +211,19 @@ Reply
             buffer = io.BytesIO()
             with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
                 df.to_excel(writer, index=False, sheet_name='Predictions')
+                
+                worksheet = writer.sheets['Predictions']
+                
+                # Make headers bold
+                for cell in worksheet[1]:
+                    cell.font = Font(bold=True)
+                    
+                # Adjust column widths dynamically
+                for col in worksheet.columns:
+                    max_length = max((len(str(cell.value)) for cell in col if cell.value is not None), default=0)
+                    col_letter = col[0].column_letter
+                    worksheet.column_dimensions[col_letter].width = min(max_length + 2, 50) # Cap width at 50
+
             st.download_button(
                 label="📊 Download as Excel",
                 data=buffer.getvalue(),
