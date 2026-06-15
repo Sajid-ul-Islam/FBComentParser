@@ -4,7 +4,7 @@ import openpyxl
 import pandas as pd
 from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
-def extract_name_and_prediction(text):
+def extract_name_and_prediction(text, team1="Brazil", team2="Morocco"):
     """Extract name and prediction from comment blocks"""
     lines = text.strip().split('\n')
     results = []
@@ -22,7 +22,7 @@ def extract_name_and_prediction(text):
         is_name = (
             len(line) > 2 and 
             not re.search(r'\d+[dmhyw]$', line) and # Exclude timestamps like 1d, 2h, 5m
-            not re.search(r'Brazil|Morocco|ব্রাজিল|মরক্কো', line, re.IGNORECASE) and
+            not re.search(rf'{team1}|{team2}|ব্রাজিল|মরক্কো', line, re.IGNORECASE) and
             not re.search(r'goal|গোল|prediction', line, re.IGNORECASE) and
             line not in ['Reply', 'Edited', 'See Original', 'Top fan', 'Follow', 'Like'] and
             not re.search(r'^[\W_]+$', line) # Exclude lines with only emojis/punctuation
@@ -40,7 +40,7 @@ def extract_name_and_prediction(text):
                     prediction = next_line
                     lines_to_skip = j - i
                     break
-                elif re.search(r'Brazil.*\d.*Morocco|ব্রাজিল.*\d.*মরক্কো', next_line, re.IGNORECASE):
+                elif re.search(rf'{team1}.*\d.*{team2}|ব্রাজিল.*\d.*মরক্কো', next_line, re.IGNORECASE):
                     prediction = next_line
                     lines_to_skip = j - i
                     break
@@ -62,14 +62,14 @@ def extract_name_and_prediction(text):
     
     return results
 
-def parse_score(prediction):
+def parse_score(prediction, team1="Brazil", team2="Morocco"):
     """Extract Brazil and Morocco scores from prediction text"""
     if not prediction:
         return None, None
     
     # Pattern for "Brazil 2-1 Morocco" or "ব্রাজিল ২-১ মরক্কো"
     patterns = [
-        r'Brazil[^\d]*(\d+)\s*[-–:]\s*(\d+)[^\d]*Morocco',
+        rf'{team1}[^\d]*(\d+)\s*[-–:]\s*(\d+)[^\d]*{team2}',
         r'ব্রাজিল[^\d]*(\d+)\s*[-–:]\s*(\d+)[^\d]*মরক্কো',
         r'(\d+)\s*[-–:]\s*(\d+)',  # Just numbers like "2-1"
     ]
@@ -81,26 +81,26 @@ def parse_score(prediction):
     
     return None, None
 
-def get_verdict(brazil_score, morocco_score):
+def get_verdict(brazil_score, morocco_score, team1="Brazil", team2="Morocco"):
     """Generate verdict based on prediction"""
     if brazil_score is None or morocco_score is None:
         return "❓ Invalid Prediction"
     
     if brazil_score > morocco_score:
-        return "✅ Brazil Win"
+        return f"✅ {team1} Win"
     elif morocco_score > brazil_score:
-        return "❌ Morocco Win (Upset)"
+        return f"❌ {team2} Win (Upset)"
     else:
         return "🤝 Draw"
 
-def process_excel_file(uploaded_file):
+def process_excel_file(uploaded_file, team1="Brazil", team2="Morocco"):
     """Parse raw excel file and extract formatted commenter info"""
     wb = openpyxl.load_workbook(uploaded_file)
     sheet = wb.active
     
     out_wb = openpyxl.Workbook()
     out_sheet = out_wb.active
-    out_sheet.append(["Commenter Name", "Comment", "Time Ago", "Brazil Goals", "Morocco Goals", "Verdict"])
+    out_sheet.append(["Commenter Name", "Comment", "Time Ago", f"{team1} Goals", f"{team2} Goals", "Verdict"])
     
     current_name = None
     current_link = None
@@ -121,8 +121,8 @@ def process_excel_file(uploaded_file):
             time_ago = val
             if current_name:
                 comment_text = "\\n".join(current_comment_lines)
-                brazil, morocco = parse_score(comment_text)
-                verdict = get_verdict(brazil, morocco)
+                brazil, morocco = parse_score(comment_text, team1, team2)
+                verdict = get_verdict(brazil, morocco, team1, team2)
                 
                 row_idx = out_sheet.max_row + 1
                 name_cell = out_sheet.cell(row=row_idx, column=1, value=current_name)
@@ -156,21 +156,21 @@ def process_excel_file(uploaded_file):
     
     return output, preview_df
 
-def pick_winners(df, actual_brazil, actual_morocco, max_winners=10):
+def pick_winners(df, actual_brazil, actual_morocco, team1="Brazil", team2="Morocco", max_winners=10):
     """Filter for exact score predictions and randomly select up to max_winners"""
     if df.empty:
         return pd.DataFrame()
         
     # Clean df to only include rows where goals are numeric (handles the '-' placeholder)
-    df_clean = df[pd.to_numeric(df['Brazil Goals'], errors='coerce').notnull()]
+    df_clean = df[pd.to_numeric(df[f'{team1} Goals'], errors='coerce').notnull()]
     
     if df_clean.empty:
         return pd.DataFrame()
         
     # Filter for exact score match
     correct_df = df_clean[
-        (df_clean['Brazil Goals'] == actual_brazil) & 
-        (df_clean['Morocco Goals'] == actual_morocco)
+        (df_clean[f'{team1} Goals'] == actual_brazil) & 
+        (df_clean[f'{team2} Goals'] == actual_morocco)
     ]
     
     if correct_df.empty:

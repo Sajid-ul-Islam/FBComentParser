@@ -15,6 +15,14 @@ st.title("Football Prediction Analyzer")
 st.markdown("Easily extract, analyze, and export predictions from social media comments for the World Cup! 🏆")
 st.divider()
 
+# Global Match Configuration
+st.subheader("⚙️ Match Configuration")
+team_col1, team_col2 = st.columns(2)
+with team_col1:
+    team_1 = st.text_input("First Team Name", value="Brazil")
+with team_col2:
+    team_2 = st.text_input("Second Team Name", value="Morocco")
+
 # Sidebar
 with st.sidebar:
     st.header("📋 About")
@@ -36,22 +44,24 @@ with st.sidebar:
     st.markdown("---")
     st.caption("Built with Streamlit & ❤️")
 
-def render_winner_picker(df, name_col, text_col, key_prefix):
+def render_winner_picker(df, name_col, text_col, key_prefix, team1, team2):
     """Helper to render the winner picker UI"""
     st.divider()
     st.subheader("🏆 Pick Winners")
-    st.markdown("Enter the **actual match score** to find and randomly select up to 10 people who predicted it exactly.")
+    st.markdown("Enter the **actual match score** to find and randomly select people who predicted it exactly.")
     
-    w_col1, w_col2, w_col3 = st.columns([1, 1, 2])
+    w_col1, w_col2, w_col3 = st.columns([1, 1, 1])
     with w_col1:
-        actual_brazil = st.number_input("Actual Brazil Goals", min_value=0, max_value=20, value=0, step=1, key=f"{key_prefix}_b")
+        actual_t1 = st.number_input(f"Actual {team1} Goals", min_value=0, max_value=20, value=0, step=1, key=f"{key_prefix}_b")
     with w_col2:
-        actual_morocco = st.number_input("Actual Morocco Goals", min_value=0, max_value=20, value=0, step=1, key=f"{key_prefix}_m")
+        actual_t2 = st.number_input(f"Actual {team2} Goals", min_value=0, max_value=20, value=0, step=1, key=f"{key_prefix}_m")
+    with w_col3:
+        max_w = st.number_input("Number of Winners", min_value=1, max_value=100, value=10, step=1, key=f"{key_prefix}_w")
         
-    if st.button("🎲 Randomly Pick 10 Winners!", type="primary", key=f"{key_prefix}_btn"):
-        winners_df = pick_winners(df, actual_brazil, actual_morocco, max_winners=10)
+    if st.button(f"🎲 Randomly Pick {max_w} Winners!", type="primary", key=f"{key_prefix}_btn"):
+        winners_df = pick_winners(df, actual_t1, actual_t2, team1, team2, max_winners=max_w)
         if winners_df.empty:
-            st.error(f"No one predicted exactly {actual_brazil}-{actual_morocco}!")
+            st.error(f"No one predicted exactly {actual_t1}-{actual_t2}!")
         else:
             st.success(f"Found {len(winners_df)} winners!")
             st.balloons()
@@ -88,23 +98,23 @@ Reply
             st.warning("Please paste some comments first!")
         else:
             # Extract data
-            raw_results = extract_name_and_prediction(input_text)
+            raw_results = extract_name_and_prediction(input_text, team_1, team_2)
             
             # Parse scores
             parsed_results = []
             for item in raw_results:
-                brazil, morocco = parse_score(item['raw_prediction'])
+                t1_score, t2_score = parse_score(item['raw_prediction'], team_1, team_2)
                 parsed_results.append({
                     'Name': item['name'],
                     'Prediction Text': item['raw_prediction'][:100] if item['raw_prediction'] else 'Not found',
-                    'Brazil Goals': brazil if brazil is not None else '-',
-                    'Morocco Goals': morocco if morocco is not None else '-',
-                    'Verdict': get_verdict(brazil, morocco)
+                    f'{team_1} Goals': t1_score if t1_score is not None else '-',
+                    f'{team_2} Goals': t2_score if t2_score is not None else '-',
+                    'Verdict': get_verdict(t1_score, t2_score, team_1, team_2)
                 })
             
             # Filter out entries with no name or completely invalid
-            valid_results = [r for r in parsed_results if r['Name'] and r['Brazil Goals'] != '-']
-            invalid_results = [r for r in parsed_results if r['Name'] and r['Brazil Goals'] == '-']
+            valid_results = [r for r in parsed_results if r['Name'] and r[f'{team_1} Goals'] != '-']
+            invalid_results = [r for r in parsed_results if r['Name'] and r[f'{team_1} Goals'] == '-']
             
             # Create DataFrame
             if not valid_results:
@@ -129,11 +139,11 @@ Reply
         with col1:
             st.metric("Total Valid Predictions", len(valid_results))
         with col2:
-            brazil_wins = sum(1 for r in valid_results if r['Verdict'] == "✅ Brazil Win")
-            st.metric("Brazil Win Predictions", brazil_wins)
+            t1_wins = sum(1 for r in valid_results if r['Verdict'] == f"✅ {team_1} Win")
+            st.metric(f"{team_1} Win Predictions", t1_wins)
         with col3:
-            morocco_wins = sum(1 for r in valid_results if r['Verdict'] == "❌ Morocco Win (Upset)")
-            st.metric("Morocco Win Predictions", morocco_wins)
+            t2_wins = sum(1 for r in valid_results if r['Verdict'] == f"❌ {team_2} Win (Upset)")
+            st.metric(f"{team_2} Win Predictions", t2_wins)
         with col4:
             draws = sum(1 for r in valid_results if r['Verdict'] == "🤝 Draw")
             st.metric("Draw Predictions", draws)
@@ -144,20 +154,20 @@ Reply
         col1, col2 = st.columns(2)
         
         with col1:
-            brazil_goals = [r['Brazil Goals'] for r in valid_results if isinstance(r['Brazil Goals'], int)]
-            if brazil_goals:
-                goal_counts = Counter(brazil_goals)
+            t1_goals_list = [r[f'{team_1} Goals'] for r in valid_results if isinstance(r[f'{team_1} Goals'], int)]
+            if t1_goals_list:
+                goal_counts = Counter(t1_goals_list)
                 st.bar_chart(pd.DataFrame.from_dict(goal_counts, orient='index', columns=['Count']))
         
         with col2:
-            total_goals = [r['Brazil Goals'] + r['Morocco Goals'] for r in valid_results if isinstance(r['Brazil Goals'], int) and isinstance(r['Morocco Goals'], int)]
+            total_goals = [r[f'{team_1} Goals'] + r[f'{team_2} Goals'] for r in valid_results if isinstance(r[f'{team_1} Goals'], int) and isinstance(r[f'{team_2} Goals'], int)]
             if total_goals:
                 goal_counts = Counter(total_goals)
                 st.bar_chart(pd.DataFrame.from_dict(goal_counts, orient='index', columns=['Count']))
         
         # Most common scorelines
         st.subheader("🎯 Most Common Scoreline Predictions")
-        scorelines = [f"{r['Brazil Goals']}-{r['Morocco Goals']}" for r in valid_results if isinstance(r['Brazil Goals'], int)]
+        scorelines = [f"{r[f'{team_1} Goals']}-{r[f'{team_2} Goals']}" for r in valid_results if isinstance(r[f'{team_1} Goals'], int)]
         if scorelines:
             common = Counter(scorelines).most_common(5)
             for score, count in common:
@@ -172,8 +182,8 @@ Reply
             column_config={
                 "Name": st.column_config.TextColumn("Name", width="medium"),
                 "Prediction Text": st.column_config.TextColumn("Raw Prediction", width="large"),
-                "Brazil Goals": st.column_config.NumberColumn("Brazil", width="small"),
-                "Morocco Goals": st.column_config.NumberColumn("Morocco", width="small"),
+                f"{team_1} Goals": st.column_config.NumberColumn(team_1, width="small"),
+                f"{team_2} Goals": st.column_config.NumberColumn(team_2, width="small"),
                 "Verdict": st.column_config.TextColumn("Verdict", width="medium"),
             }
         )
@@ -207,7 +217,7 @@ Reply
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             )
             
-        render_winner_picker(df, 'Name', 'Prediction Text', 'tab1')
+        render_winner_picker(df, 'Name', 'Prediction Text', 'tab1', team_1, team_2)
 
 with tab2:
     st.markdown("### 📁 Upload Raw Comments Excel File")
@@ -218,7 +228,7 @@ with tab2:
         if st.button("⚙️ Process Excel File", type="primary", use_container_width=True):
             with st.spinner("Processing your file..."):
                 try:
-                    output_buffer, preview_df = process_excel_file(uploaded_file)
+                    output_buffer, preview_df = process_excel_file(uploaded_file, team_1, team_2)
                     st.session_state['excel_output'] = output_buffer
                     st.session_state['excel_df'] = preview_df
                     st.toast("File processed successfully!", icon="✅")
@@ -243,4 +253,4 @@ with tab2:
                 use_container_width=True
             )
             
-            render_winner_picker(preview_df, 'Commenter Name', 'Comment', 'tab2')
+            render_winner_picker(preview_df, 'Commenter Name', 'Comment', 'tab2', team_1, team_2)
