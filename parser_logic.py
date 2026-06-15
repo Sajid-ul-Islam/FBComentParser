@@ -100,7 +100,7 @@ def process_excel_file(uploaded_file):
     
     out_wb = openpyxl.Workbook()
     out_sheet = out_wb.active
-    out_sheet.append(["Commenter Name", "Comment", "Time Ago"])
+    out_sheet.append(["Commenter Name", "Comment", "Time Ago", "Brazil Goals", "Morocco Goals", "Verdict"])
     
     current_name = None
     current_link = None
@@ -121,6 +121,9 @@ def process_excel_file(uploaded_file):
             time_ago = val
             if current_name:
                 comment_text = "\\n".join(current_comment_lines)
+                brazil, morocco = parse_score(comment_text)
+                verdict = get_verdict(brazil, morocco)
+                
                 row_idx = out_sheet.max_row + 1
                 name_cell = out_sheet.cell(row=row_idx, column=1, value=current_name)
                 if current_link:
@@ -128,6 +131,9 @@ def process_excel_file(uploaded_file):
                     name_cell.style = "Hyperlink"
                 out_sheet.cell(row=row_idx, column=2, value=ILLEGAL_CHARACTERS_RE.sub(r'', comment_text))
                 out_sheet.cell(row=row_idx, column=3, value=time_ago)
+                out_sheet.cell(row=row_idx, column=4, value=brazil if brazil is not None else '-')
+                out_sheet.cell(row=row_idx, column=5, value=morocco if morocco is not None else '-')
+                out_sheet.cell(row=row_idx, column=6, value=verdict)
                 
             current_name = None
             current_link = None
@@ -149,3 +155,27 @@ def process_excel_file(uploaded_file):
     output.seek(0)
     
     return output, preview_df
+
+def pick_winners(df, actual_brazil, actual_morocco, max_winners=10):
+    """Filter for exact score predictions and randomly select up to max_winners"""
+    if df.empty:
+        return pd.DataFrame()
+        
+    # Clean df to only include rows where goals are numeric (handles the '-' placeholder)
+    df_clean = df[pd.to_numeric(df['Brazil Goals'], errors='coerce').notnull()]
+    
+    if df_clean.empty:
+        return pd.DataFrame()
+        
+    # Filter for exact score match
+    correct_df = df_clean[
+        (df_clean['Brazil Goals'] == actual_brazil) & 
+        (df_clean['Morocco Goals'] == actual_morocco)
+    ]
+    
+    if correct_df.empty:
+        return correct_df
+        
+    # Pick random winners
+    winners = correct_df.sample(n=min(len(correct_df), max_winners))
+    return winners
