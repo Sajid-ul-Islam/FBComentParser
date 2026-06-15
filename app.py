@@ -8,17 +8,59 @@ from collections import Counter
 
 st.set_page_config(page_title="Football Prediction Analyzer", page_icon="⚽", layout="wide", initial_sidebar_state="expanded")
 
-# --- Custom CSS for polish ---
+# --- Custom CSS & Animation for polish ---
 st.markdown("""
     <style>
     .main .block-container {
         padding-top: 2rem;
     }
+    
+    /* World Cup Football Animation */
+    @keyframes kick-ball {
+        0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+        15% { transform: translate(100px, -80px) rotate(180deg); }
+        30% { transform: translate(200px, 0px) rotate(360deg); }
+        45% { transform: translate(280px, -40px) rotate(540deg); }
+        60% { transform: translate(340px, 0px) rotate(720deg); }
+        75% { transform: translate(380px, -15px) rotate(900deg); opacity: 1; }
+        90% { transform: translate(420px, 0px) rotate(1080deg); opacity: 0; }
+        100% { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+    }
+    @keyframes kick-leg {
+        0% { transform: rotate(0deg); }
+        5% { transform: rotate(-20deg); }
+        15% { transform: rotate(40deg); }
+        30% { transform: rotate(0deg); }
+        100% { transform: rotate(0deg); }
+    }
+    .anim-container {
+        display: flex;
+        align-items: center;
+        font-size: 55px;
+        margin-bottom: -15px;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    .player {
+        animation: kick-leg 3s infinite;
+        transform-origin: bottom center;
+        z-index: 2;
+    }
+    .ball {
+        animation: kick-ball 3s infinite cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        margin-left: 5px;
+        z-index: 1;
+    }
     </style>
+    
+    <div class="anim-container">
+        <div class="player">🏃‍♂️</div>
+        <div class="ball">⚽</div>
+    </div>
 """, unsafe_allow_html=True)
 
-st.title("⚽ Football Prediction Analyzer")
-st.markdown("Easily extract, analyze, and export predictions from social media comments.")
+st.title("Football Prediction Analyzer")
+st.markdown("Easily extract, analyze, and export predictions from social media comments for the World Cup! 🏆")
 st.divider()
 
 # Sidebar
@@ -43,7 +85,7 @@ with st.sidebar:
     st.caption("Built with Streamlit & ❤️")
 
 # Main input area
-tab1, tab2 = st.tabs(["📝 Paste Text Analysis", "📁 Excel File Analysis"])
+tab2, tab1 = st.tabs(["📁 Excel File Analysis", "📝 Paste Text Analysis"])
 
 with tab1:
     input_text = st.text_area(
