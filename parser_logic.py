@@ -118,6 +118,7 @@ def process_excel_file(uploaded_file, team1="Brazil", team2="Morocco"):
     current_name = None
     current_link = None
     current_comment_lines = []
+    preview_data = []
     
     for row in sheet.iter_rows():
         if not row: continue
@@ -148,6 +149,17 @@ def process_excel_file(uploaded_file, team1="Brazil", team2="Morocco"):
                 out_sheet.cell(row=row_idx, column=5, value=morocco if morocco is not None else '-')
                 out_sheet.cell(row=row_idx, column=6, value=verdict)
                 
+                # Append to preview data
+                preview_data.append({
+                    "Commenter Name": current_name,
+                    "Profile Link": current_link,
+                    "Comment": ILLEGAL_CHARACTERS_RE.sub(r'', comment_text),
+                    "Time Ago": time_ago,
+                    f"{team1} Goals": brazil if brazil is not None else '-',
+                    f"{team2} Goals": morocco if morocco is not None else '-',
+                    "Verdict": verdict
+                })
+                
             current_name = None
             current_link = None
             current_comment_lines = []
@@ -164,8 +176,7 @@ def process_excel_file(uploaded_file, team1="Brazil", team2="Morocco"):
     out_wb.save(output)
     output.seek(0)
     
-    preview_df = pd.read_excel(output)
-    output.seek(0)
+    preview_df = pd.DataFrame(preview_data)
     
     return output, preview_df
 
