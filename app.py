@@ -71,6 +71,9 @@ def render_winner_picker(df, name_col, text_col, key_prefix, team1, team2):
                 use_container_width=True, 
                 hide_index=True
             )
+            # Store winners in session state so they can be included in Excel export
+            st.session_state[f'{key_prefix}_winners'] = winners_df
+            st.session_state[f'{key_prefix}_score'] = f"{actual_t1}-{actual_t2}"
 
 # Main input area
 tab2, tab1 = st.tabs(["📁 Excel File Analysis", "📝 Paste Text Analysis"])
@@ -224,6 +227,20 @@ Reply
                     col_letter = col[0].column_letter
                     worksheet.column_dimensions[col_letter].width = min(max_length + 2, 50) # Cap width at 50
 
+                # Add Winners sheet if winners have been picked
+                if 'tab1_winners' in st.session_state:
+                    winners_df = st.session_state['tab1_winners']
+                    score_text = st.session_state.get('tab1_score', '')
+                    winners_df.to_excel(writer, index=False, sheet_name='Winners')
+                    
+                    ws_winners = writer.sheets['Winners']
+                    for cell in ws_winners[1]:
+                        cell.font = Font(bold=True)
+                    for col in ws_winners.columns:
+                        max_length = max((len(str(cell.value)) for cell in col if cell.value is not None), default=0)
+                        col_letter = col[0].column_letter
+                        ws_winners.column_dimensions[col_letter].width = min(max_length + 2, 50)
+
             st.download_button(
                 label="📊 Download as Excel",
                 data=buffer.getvalue(),
@@ -259,9 +276,35 @@ with tab2:
             st.subheader("Preview (first 10 rows)")
             st.dataframe(preview_df.head(10), use_container_width=True, hide_index=True)
             
+            # Build Excel with optional Winners tab
+            excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                preview_df.to_excel(writer, index=False, sheet_name='Predictions')
+                
+                ws_pred = writer.sheets['Predictions']
+                for cell in ws_pred[1]:
+                    cell.font = Font(bold=True)
+                for col in ws_pred.columns:
+                    max_length = max((len(str(cell.value)) for cell in col if cell.value is not None), default=0)
+                    col_letter = col[0].column_letter
+                    ws_pred.column_dimensions[col_letter].width = min(max_length + 2, 50)
+                
+                # Add Winners sheet if winners have been picked
+                if 'tab2_winners' in st.session_state:
+                    winners_df = st.session_state['tab2_winners']
+                    winners_df.to_excel(writer, index=False, sheet_name='Winners')
+                    
+                    ws_winners = writer.sheets['Winners']
+                    for cell in ws_winners[1]:
+                        cell.font = Font(bold=True)
+                    for col in ws_winners.columns:
+                        max_length = max((len(str(cell.value)) for cell in col if cell.value is not None), default=0)
+                        col_letter = col[0].column_letter
+                        ws_winners.column_dimensions[col_letter].width = min(max_length + 2, 50)
+
             st.download_button(
                 label="📥 Download Analyzed Excel File",
-                data=output_buffer,
+                data=excel_buffer.getvalue(),
                 file_name="Analyzed_" + uploaded_file.name,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
